@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,42 +30,42 @@ const Results = () => {
   const processAssessmentData = (data: any) => {
     // Process Layer 1 - Multiple Intelligences
     const layer1 = data.layer_1 || {};
-    const intelligences: Record<string, number> = {};
+    const intelligenceArrays: Record<string, number[]> = {};
     
     // Calculate average scores for each intelligence type
     Object.entries(layer1).forEach(([questionId, score]: [string, any]) => {
       if (typeof score === 'number') {
         const intelligenceType = getIntelligenceType(questionId);
-        if (!intelligences[intelligenceType]) {
-          intelligences[intelligenceType] = [];
+        if (!intelligenceArrays[intelligenceType]) {
+          intelligenceArrays[intelligenceType] = [];
         }
-        (intelligences[intelligenceType] as any).push(score);
+        intelligenceArrays[intelligenceType].push(score);
       }
     });
 
     // Average the scores
     const avgIntelligences: Record<string, number> = {};
-    Object.entries(intelligences).forEach(([type, scores]: [string, any]) => {
-      avgIntelligences[type] = scores.reduce((a: number, b: number) => a + b, 0) / scores.length;
+    Object.entries(intelligenceArrays).forEach(([type, scores]) => {
+      avgIntelligences[type] = scores.reduce((a, b) => a + b, 0) / scores.length;
     });
     setIntelligenceScores(avgIntelligences);
 
     // Process Layer 2 - Personality
     const layer2 = data.layer_2 || {};
-    const personality: Record<string, number> = {};
+    const personalityArrays: Record<string, number[]> = {};
     Object.entries(layer2).forEach(([questionId, score]: [string, any]) => {
       if (typeof score === 'number') {
         const personalityType = getPersonalityType(questionId);
-        if (!personality[personalityType]) {
-          personality[personalityType] = [];
+        if (!personalityArrays[personalityType]) {
+          personalityArrays[personalityType] = [];
         }
-        (personality[personalityType] as any).push(score);
+        personalityArrays[personalityType].push(score);
       }
     });
 
     const avgPersonality: Record<string, number> = {};
-    Object.entries(personality).forEach(([type, scores]: [string, any]) => {
-      avgPersonality[type] = scores.reduce((a: number, b: number) => a + b, 0) / scores.length;
+    Object.entries(personalityArrays).forEach(([type, scores]) => {
+      avgPersonality[type] = scores.reduce((a, b) => a + b, 0) / scores.length;
     });
     setPersonalityInsights(avgPersonality);
 
