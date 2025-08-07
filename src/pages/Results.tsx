@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import CareerRecommendations from '@/components/CareerRecommendations';
-import { Brain, Target, TrendingUp, Download, Home } from 'lucide-react';
+import { Brain, Target, TrendingUp, Download, Home, FileText } from 'lucide-react';
+import { generatePDFReport } from '@/services/pdfGenerator';
+import { toast } from 'sonner';
 
 const Results = () => {
   const navigate = useNavigate();
@@ -227,6 +229,20 @@ const Results = () => {
     linkElement.click();
   };
 
+  const downloadPDFReport = () => {
+    try {
+      generatePDFReport({
+        intelligenceScores,
+        personalityInsights,
+        careerRecommendations
+      });
+      toast.success('PDF report generated successfully!');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF report. Please try again.');
+    }
+  };
+
   if (!assessmentData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
@@ -250,9 +266,13 @@ const Results = () => {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900">Your Career Assessment Results</h1>
           <div className="flex space-x-4">
+            <Button onClick={downloadPDFReport} className="bg-primary hover:bg-primary/90">
+              <FileText className="h-4 w-4 mr-2" />
+              Download PDF Report
+            </Button>
             <Button variant="outline" onClick={downloadResults}>
               <Download className="h-4 w-4 mr-2" />
-              Download Results
+              Download Raw Data
             </Button>
             <Button onClick={() => navigate('/')}>
               <Home className="h-4 w-4 mr-2" />
