@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,69 +7,34 @@ import CareerRecommendations from '@/components/CareerRecommendations';
 import IntelligenceRadar from '@/components/IntelligenceRadar';
 import { Brain, Target, TrendingUp, Download, Home, FileText, Sparkles } from 'lucide-react';
 import { generatePDFReport } from '@/services/pdfGenerator';
-import { AssessmentService } from '@/services/assessmentService';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const Results = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
   const [assessmentData, setAssessmentData] = useState<any>(null);
   const [intelligenceScores, setIntelligenceScores] = useState<Record<string, number>>({});
   const [personalityInsights, setPersonalityInsights] = useState<Record<string, number>>({});
   const [careerRecommendations, setCareerRecommendations] = useState<any[]>([]);
-  const [currentAssessmentId, setCurrentAssessmentId] = useState<string | null>(null);
 
   // New: AI explanations state
   const [explanations, setExplanations] = useState<Explanations | null>(null);
   const [explanationsLoading, setExplanationsLoading] = useState(false);
 
   useEffect(() => {
-    const loadAssessmentData = async () => {
-      // Try to load from database first if user is authenticated
-      if (isAuthenticated && user) {
-        const assessmentId = localStorage.getItem('currentAssessmentId');
-        if (assessmentId) {
-          setCurrentAssessmentId(assessmentId);
-          
-          // Load from database
-          const responses = await AssessmentService.getAssessmentResponses(assessmentId);
-          const results = await AssessmentService.getAssessmentResults(assessmentId);
-          
-          if (responses.length > 0) {
-            const structuredData = AssessmentService.convertResponsesToStructured(responses);
-            setAssessmentData(structuredData);
-            processAssessmentData(structuredData);
-            
-            // If we have saved results, use them
-            if (results) {
-              setIntelligenceScores(results.intelligence_scores as Record<string, number>);
-              setPersonalityInsights(results.personality_insights as Record<string, number>);
-              setCareerRecommendations(results.career_recommendations as any[]);
-              if (results.ai_explanations) {
-                setExplanations(results.ai_explanations as Explanations);
-              }
-              return;
-            }
-          }
-        }
-      }
-      
-      // Fallback to localStorage
-      const storedResults = localStorage.getItem('assessmentResults');
-      if (!storedResults) {
-        navigate('/assessment');
-        return;
-      }
+    const storedResults = localStorage.getItem('assessmentResults');
+    if (!storedResults) {
+      navigate('/assessment');
+      return;
+    }
 
-      const data = JSON.parse(storedResults);
-      setAssessmentData(data);
-      processAssessmentData(data);
-    };
-
-    loadAssessmentData();
-  }, [navigate, isAuthenticated, user]);
+    const data = JSON.parse(storedResults);
+    setAssessmentData(data);
+    
+    // Process the data to extract insights
+    processAssessmentData(data);
+  }, [navigate]);
 
   const processAssessmentData = (data: any) => {
     // Process Layer 1 - Multiple Intelligences
@@ -246,29 +210,6 @@ const Results = () => {
 
     setCareerRecommendations(recommendations);
   };
-
-  // Save results to database when they're calculated
-  useEffect(() => {
-    const saveResultsToDatabase = async () => {
-      if (
-        isAuthenticated && 
-        user && 
-        currentAssessmentId && 
-        Object.keys(intelligenceScores).length > 0 && 
-        careerRecommendations.length > 0
-      ) {
-        await AssessmentService.saveResults(
-          currentAssessmentId,
-          intelligenceScores,
-          personalityInsights,
-          careerRecommendations,
-          explanations
-        );
-      }
-    };
-
-    saveResultsToDatabase();
-  }, [intelligenceScores, personalityInsights, careerRecommendations, explanations, isAuthenticated, user, currentAssessmentId]);
 
   const getTopIntelligences = () => {
     return Object.entries(intelligenceScores)
