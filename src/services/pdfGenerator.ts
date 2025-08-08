@@ -146,7 +146,14 @@ export const generatePDFReport = (data: AssessmentData): void => {
     pdf.setTextColor(68, 68, 68);
     const description = pdf.splitTextToSize(career.description, pageWidth - 2 * margin);
     pdf.text(description, margin, yPosition);
-    yPosition += description.length * 4 + 10;
+    yPosition += description.length * 4 + 6;
+
+    // O*NET reference link
+    const onetUrl = `https://www.onetonline.org/find/quick?s=${encodeURIComponent(career.title)}`;
+    const onetLine = `O*NET: ${onetUrl}`;
+    const wrappedOnet = pdf.splitTextToSize(onetLine, pageWidth - 2 * margin);
+    pdf.text(wrappedOnet, margin, yPosition);
+    yPosition += wrappedOnet.length * 4 + 10;
   });
 
   // Footer with action items
