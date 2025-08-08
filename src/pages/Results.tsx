@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import CareerRecommendations from '@/components/CareerRecommendations';
+import IntelligenceRadar from '@/components/IntelligenceRadar';
 import { Brain, Target, TrendingUp, Download, Home, FileText } from 'lucide-react';
 import { generatePDFReport } from '@/services/pdfGenerator';
 import { toast } from 'sonner';
@@ -282,7 +283,7 @@ const Results = () => {
         </div>
 
         {/* Intelligence Strengths */}
-        <Card className="mb-8 shadow-lg border-0">
+        <Card className="mb-8 shadow-lg border-0 animate-fade-in hover-scale">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Brain className="h-6 w-6 text-blue-600" />
@@ -290,7 +291,7 @@ const Results = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-3 gap-6 mb-6">
               {topIntelligences.map(([intelligence, score], index) => (
                 <div key={intelligence} className="text-center p-4 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50">
                   <div className="text-2xl font-bold text-blue-600 mb-2">#{index + 1}</div>
@@ -300,11 +301,16 @@ const Results = () => {
                 </div>
               ))}
             </div>
+
+            <div className="h-72 rounded-lg border bg-card/50 p-4">
+              <div className="mb-2 font-medium text-sm text-muted-foreground">Strengths Radar</div>
+              <IntelligenceRadar scores={intelligenceScores} className="h-full" />
+            </div>
           </CardContent>
         </Card>
 
         {/* Personality Insights */}
-        <Card className="mb-8 shadow-lg border-0">
+        <Card className="mb-8 shadow-lg border-0 animate-fade-in hover-scale">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Target className="h-6 w-6 text-green-600" />
@@ -324,7 +330,7 @@ const Results = () => {
         </Card>
 
         {/* Career Recommendations */}
-        <Card className="shadow-lg border-0">
+        <Card className="shadow-lg border-0 animate-fade-in hover-scale">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <TrendingUp className="h-6 w-6 text-purple-600" />
