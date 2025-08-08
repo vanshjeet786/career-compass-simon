@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import CareerRecommendations from '@/components/CareerRecommendations';
 import IntelligenceRadar from '@/components/IntelligenceRadar';
-import { Brain, Target, TrendingUp, Download, Home, FileText } from 'lucide-react';
+import { Brain, Target, TrendingUp, Download, Home, FileText, Sparkles } from 'lucide-react';
 import { generatePDFReport } from '@/services/pdfGenerator';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const Results = () => {
   const navigate = useNavigate();
@@ -15,6 +17,10 @@ const Results = () => {
   const [intelligenceScores, setIntelligenceScores] = useState<Record<string, number>>({});
   const [personalityInsights, setPersonalityInsights] = useState<Record<string, number>>({});
   const [careerRecommendations, setCareerRecommendations] = useState<any[]>([]);
+
+  // New: AI explanations state
+  const [explanations, setExplanations] = useState<Explanations | null>(null);
+  const [explanationsLoading, setExplanationsLoading] = useState(false);
 
   useEffect(() => {
     const storedResults = localStorage.getItem('assessmentResults');
@@ -211,6 +217,41 @@ const Results = () => {
       .slice(0, 3);
   };
 
+  // New: Fetch AI explanations once we have all inputs ready
+  useEffect(() => {
+    const hasInts = Object.keys(intelligenceScores).length > 0;
+    const hasPers = Object.keys(personalityInsights).length > 0;
+    const hasCareers = careerRecommendations.length > 0;
+
+    if (!hasInts || !hasPers || !hasCareers) return;
+
+    const payload = {
+      topIntelligences: getTopIntelligences().map(([type, score]) => ({ type, score })),
+      personalityInsights,
+      careers: careerRecommendations.slice(0, 5).map((c) => ({
+        title: c.title,
+        matchPercentage: c.matchPercentage,
+        matchFactors: c.matchFactors,
+        category: c.category,
+      })),
+    };
+
+    setExplanationsLoading(true);
+    supabase.functions
+      .invoke('generate-explanations', { body: payload })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Error generating explanations:', error);
+          toast.error('Failed to generate AI explanations.');
+          return;
+        }
+        setExplanations(data as Explanations);
+        toast.success('AI explanations generated successfully!');
+      })
+      .finally(() => setExplanationsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intelligenceScores, personalityInsights, careerRecommendations]);
+
   const downloadResults = () => {
     const results = {
       intelligenceScores,
@@ -282,6 +323,21 @@ const Results = () => {
           </div>
         </div>
 
+        {/* AI Executive Summary */}
+        {explanations?.executiveSummary && (
+          <Card className="mb-8 shadow-lg border-0 animate-fade-in hover-scale">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Sparkles className="h-6 w-6 text-purple-600" />
+                <span>AI Executive Summary</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">{explanations.executiveSummary}</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Intelligence Strengths */}
         <Card className="mb-8 shadow-lg border-0 animate-fade-in hover-scale">
           <CardHeader>
@@ -296,7 +352,7 @@ const Results = () => {
                 <div key={intelligence} className="text-center p-4 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50">
                   <div className="text-2xl font-bold text-blue-600 mb-2">#{index + 1}</div>
                   <div className="font-semibold text-gray-900 mb-2">{intelligence}</div>
-                  <div className="text-lg text-blue-600 font-bold">{(score * 20).toFixed(0)}%</div>
+                  <div className="text-lg text-blue-600 font-bold">{(score as number * 20).toFixed(0)}%</div>
                   <Badge variant="secondary" className="mt-2">Top Strength</Badge>
                 </div>
               ))}
@@ -306,6 +362,26 @@ const Results = () => {
               <div className="mb-2 font-medium text-sm text-muted-foreground">Strengths Radar</div>
               <IntelligenceRadar scores={intelligenceScores} className="h-full" />
             </div>
+
+            {/* AI explanations per intelligence (top 3) */}
+            {explanations?.intelligencesExplained && (
+              <div className="mt-6">
+                <Accordion type="multiple" className="w-full">
+                  {topIntelligences.map(([name]) => (
+                    <AccordionItem key={name} value={name}>
+                      <AccordionTrigger className="text-sm">{name} — AI explanation</AccordionTrigger>
+                      <AccordionContent>
+                        <p className="text-sm text-muted-foreground">
+                          {explanations.intelligencesExplained[name] ||
+                            explanations.intelligencesExplained[name.toLowerCase()] ||
+                            'No AI explanation available.'}
+                        </p>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -323,6 +399,13 @@ const Results = () => {
                 <div key={trait} className="p-4 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50">
                   <div className="font-semibold text-gray-900 mb-2">{trait}</div>
                   <div className="text-lg text-green-600 font-bold">{(score * 20).toFixed(0)}%</div>
+                  {explanations?.personalityExplained && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {explanations.personalityExplained[trait] ||
+                        explanations.personalityExplained[trait.toLowerCase()] ||
+                        ''}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -338,7 +421,13 @@ const Results = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <CareerRecommendations recommendations={careerRecommendations} />
+            <CareerRecommendations
+              recommendations={careerRecommendations}
+              explanationsByCareer={explanations?.careersExplained}
+            />
+            {explanationsLoading && (
+              <div className="text-sm text-muted-foreground mt-4">Generating AI explanations…</div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -347,3 +436,10 @@ const Results = () => {
 };
 
 export default Results;
+
+type Explanations = {
+  executiveSummary: string;
+  intelligencesExplained: Record<string, string>;
+  personalityExplained: Record<string, string>;
+  careersExplained: Record<string, { rationale: string[]; skillGaps: string[] }>;
+};
