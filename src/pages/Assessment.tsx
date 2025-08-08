@@ -1,10 +1,14 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import AssessmentLayer from '@/components/AssessmentLayer';
+import AuthModal from '@/components/AuthModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle } from 'lucide-react';
+import { AssessmentService } from '@/services/assessmentService';
+import { toast } from 'sonner';
 
 interface Question {
   id: string;
@@ -14,9 +18,12 @@ interface Question {
 
 const Assessment = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const [currentLayer, setCurrentLayer] = useState(0);
   const [allResponses, setAllResponses] = useState<Record<string, any>>({});
   const [isComplete, setIsComplete] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [currentAssessmentId, setCurrentAssessmentId] = useState<string | null>(null);
 
   // Assessment data structure based on the Python code
   const assessmentLayers = [
@@ -125,25 +132,98 @@ const Assessment = () => {
     }
   ];
 
-  const handleLayerComplete = (responses: Record<string, any>) => {
+  const handleLayerComplete = async (responses: Record<string, any>) => {
     const layerKey = `layer_${currentLayer + 1}`;
-    setAllResponses(prev => ({
+    const updatedResponses = {
       ...prev,
       [layerKey]: responses
-    }));
+    };
+    setAllResponses(updatedResponses);
+
+    // Save to database if user is authenticated
+    if (isAuthenticated && user && currentAssessmentId) {
+      const success = await AssessmentService.saveResponses(
+        currentAssessmentId,
+        currentLayer + 1,
+        responses
+      );
+      
+      if (!success) {
+        toast.error('Failed to save progress. Please try again.');
+        return;
+      }
+    }
 
     if (currentLayer < assessmentLayers.length - 1) {
+      // Update progress in database
+      if (isAuthenticated && currentAssessmentId) {
+        await AssessmentService.updateAssessmentProgress(
+          currentAssessmentId,
+          currentLayer + 2
+        );
+      }
       setCurrentLayer(prev => prev + 1);
     } else {
+      // Complete assessment in database
+      if (isAuthenticated && currentAssessmentId) {
+        await AssessmentService.completeAssessment(currentAssessmentId);
+      }
       setIsComplete(true);
     }
   };
 
-  const handleViewResults = () => {
+  const handleViewResults = async () => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+
     // Store results in localStorage for the results page
     localStorage.setItem('assessmentResults', JSON.stringify(allResponses));
+    localStorage.setItem('currentAssessmentId', currentAssessmentId || '');
     navigate('/results');
   };
+
+  const handleAuthSuccess = async () => {
+    if (user) {
+      // Create new assessment for authenticated user
+      const assessment = await AssessmentService.createAssessment(user.id);
+      if (assessment) {
+        setCurrentAssessmentId(assessment.id);
+        toast.success('Assessment progress will now be saved to your account!');
+      }
+    }
+  };
+
+  // Initialize assessment for authenticated users
+  React.useEffect(() => {
+    const initializeAssessment = async () => {
+      if (isAuthenticated && user && !currentAssessmentId) {
+        // Check for existing in-progress assessment
+        const existingAssessment = await AssessmentService.getCurrentAssessment(user.id);
+        
+        if (existingAssessment) {
+          setCurrentAssessmentId(existingAssessment.id);
+          setCurrentLayer(existingAssessment.current_layer - 1);
+          
+          // Load existing responses
+          const responses = await AssessmentService.getAssessmentResponses(existingAssessment.id);
+          const structuredResponses = AssessmentService.convertResponsesToStructured(responses);
+          setAllResponses(structuredResponses);
+          
+          toast.success('Resumed your previous assessment!');
+        } else {
+          // Create new assessment
+          const newAssessment = await AssessmentService.createAssessment(user.id);
+          if (newAssessment) {
+            setCurrentAssessmentId(newAssessment.id);
+          }
+        }
+      }
+    };
+
+    initializeAssessment();
+  }, [isAuthenticated, user, currentAssessmentId]);
 
   if (isComplete) {
     return (
@@ -186,6 +266,12 @@ const Assessment = () => {
             </Button>
           </CardContent>
         </Card>
+        
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAuthSuccess}
+        />
       </div>
     );
   }
