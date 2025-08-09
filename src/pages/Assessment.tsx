@@ -135,7 +135,7 @@ const Assessment = () => {
   const handleLayerComplete = async (responses: Record<string, any>) => {
     const layerKey = `layer_${currentLayer + 1}`;
     const updatedResponses = {
-      ...prev,
+      ...allResponses,
       [layerKey]: responses
     };
     setAllResponses(updatedResponses);
